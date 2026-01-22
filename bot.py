@@ -6,6 +6,7 @@ import requests
 import threading
 import itertools
 import subprocess
+import re
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -81,9 +82,10 @@ def get_ai_response(messages, system_prompt=None):
         "X-Title": "Termux AI Agent"
     }
     
-    payload_messages = messages
+    payload_messages = []
     if system_prompt:
-        payload_messages = [{"role": "system", "content": system_prompt}] + messages
+        payload_messages.append({"role": "system", "content": system_prompt})
+    payload_messages.extend(messages)
 
     payload = {
         "model": "Claude-3.5-Sonnet",
@@ -106,7 +108,7 @@ def execute_command(command):
             command = f"yes | {command}"
             
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=300)
         return {
             "stdout": result.stdout,
             "stderr": result.stderr,
@@ -123,44 +125,46 @@ def write_file(filename, content):
     except Exception as e:
         return f"Error writing file: {str(e)}"
 
-SYSTEM_PROMPT = """You are an autonomous AI Agent in Termux. You have access to:
-1. File System: You can read/write files.
-2. System Execution: You can run bash commands.
+SYSTEM_PROMPT = """You are an autonomous AI Agent in Termux. You MUST respond in a specific structured format to perform tasks.
 
-When a user asks for a task, follow this loop:
-PLAN: Describe the steps you will take.
-CODE: Provide the code to be written (if any).
-TEST: Provide the bash command to run/test the code.
+FORMAT RULES:
+1. Always start with 'PLAN:' followed by your step-by-step plan.
+2. Use 'CODE:' followed by the content of a file you want to write.
+3. Use 'FILENAME:' followed by the name of the file for the code.
+4. Use 'TEST:' followed by a SINGLE bash command to execute.
 
-If a command fails, REFLECT on the error and fix it.
-Format your responses clearly so I can parse them.
-Always start your response with 'PLAN:', then 'CODE:' (if needed), then 'TEST:' (if needed).
+Example:
+PLAN: I will create a script and run it.
+FILENAME: test.py
+CODE:
+print("Hello")
+TEST: python test.py
+
+If you only need to run a command without writing code:
+PLAN: I will check the system version.
+TEST: uname -a
 """
 
 def parse_agent_response(response):
-    plan, code, test = None, None, None
-    lines = response.split('\n')
-    current_section = None
-    code_lines = []
+    plan = re.search(r'PLAN:(.*?)(?:CODE:|TEST:|FILENAME:|$)', response, re.DOTALL | re.IGNORECASE)
+    filename = re.search(r'FILENAME:(.*?)(?:CODE:|TEST:|PLAN:|$)', response, re.DOTALL | re.IGNORECASE)
+    test = re.search(r'TEST:(.*?)(?:CODE:|PLAN:|FILENAME:|$)', response, re.DOTALL | re.IGNORECASE)
     
-    for line in lines:
-        if line.startswith('PLAN:'):
-            current_section = 'PLAN'
-            plan = line.replace('PLAN:', '').strip()
-        elif line.startswith('CODE:'):
-            current_section = 'CODE'
-        elif line.startswith('TEST:'):
-            current_section = 'TEST'
-            test = line.replace('TEST:', '').strip()
-        elif current_section == 'CODE':
-            if line.strip().startswith('```'): continue
-            code_lines.append(line)
-        elif current_section == 'PLAN' and not line.startswith('PLAN:'):
-            plan += "\n" + line
+    # Code is usually more complex, look for CODE: block until next keyword or end
+    code_match = re.search(r'CODE:(.*?)(?:TEST:|PLAN:|FILENAME:|$)', response, re.DOTALL | re.IGNORECASE)
+    
+    plan_text = plan.group(1).strip() if plan else "No plan provided."
+    filename_text = filename.group(1).strip() if filename else "generated_script.py"
+    test_text = test.group(1).strip() if test else None
+    
+    code_text = None
+    if code_match:
+        code_text = code_match.group(1).strip()
+        # Clean up markdown code blocks if AI included them
+        code_text = re.sub(r'^```\w*\n', '', code_text)
+        code_text = re.sub(r'\n```$', '', code_text)
 
-    if code_lines:
-        code = "\n".join(code_lines).strip()
-    return plan, code, test
+    return plan_text, code_text, filename_text, test_text
 
 def main():
     draw_banner()
@@ -174,6 +178,9 @@ def main():
             if user_input.lower() in ['exit', 'quit', ':q']:
                 break
 
+            if not user_input.strip():
+                continue
+
             messages.append({"role": "user", "content": user_input})
             
             # AGENT LOOP
@@ -182,7 +189,7 @@ def main():
                 response = get_ai_response(messages, SYSTEM_PROMPT)
                 anim.stop()
                 
-                plan, code, test = parse_agent_response(response)
+                plan, code, filename, test = parse_agent_response(response)
                 
                 # Show Plan
                 console.print(Panel(Markdown(f"### Plan\n{plan}"), title="[bold yellow]PLAN[/bold yellow]", border_style="yellow"))
@@ -193,7 +200,7 @@ def main():
                 
                 # Handle CODE
                 if code:
-                    filename = Prompt.ask("Filename to write code to?", default="generated_script.py")
+                    console.print(f"[bold blue]FILENAME:[/bold blue] {filename}")
                     anim.start(f"Writing {filename}")
                     result = write_file(filename, code)
                     anim.stop()
@@ -202,7 +209,7 @@ def main():
                 # Handle TEST
                 if test:
                     console.print(Panel(f"Command: [bold cyan]{test}[/bold cyan]", title="TEST", border_style="blue"))
-                    cont_test = Prompt.ask("Execute test? [Y/n]", default="y")
+                    cont_test = Prompt.ask("Execute command? [Y/n]", default="y")
                     if cont_test.lower() == 'y':
                         anim.start("Executing")
                         result = execute_command(test)
@@ -214,10 +221,10 @@ def main():
                         if result['exit_code'] != 0:
                             console.print("[bold red]ERROR DETECTED! Starting Reflection Loop...[/bold red]")
                             messages.append({"role": "assistant", "content": response})
-                            messages.append({"role": "user", "content": f"The test failed with exit code {result['exit_code']}.\nError log:\n{result['stderr']}\nPlease fix it."})
+                            messages.append({"role": "user", "content": f"The command failed with exit code {result['exit_code']}.\nError log:\n{result['stderr']}\nPlease analyze and fix it."})
                             continue # Loop back to AI for reflection
                 
-                # If everything is successful or no test/code
+                # Task Complete
                 console.print("[bold green]✓ Task Complete.[/bold green]")
                 messages.append({"role": "assistant", "content": response})
                 break # Exit agent loop
