@@ -6,7 +6,7 @@ import threading
 import itertools
 import subprocess
 import re
-from openai import OpenAI
+import requests
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -17,11 +17,7 @@ from rich.box import ROUNDED, DOUBLE_EDGE
 console = Console()
 
 # Replit AI Integration Configuration
-# This uses Replit's internal OpenAI proxy, no API key needed.
-client = OpenAI(
-    base_url="https://api.replit.com/ai/v1",
-    api_key="replit", # This is a placeholder required by the client, the proxy handles auth
-)
+# Using raw requests to avoid dependency on 'openai' library in Termux
 
 # System Prompt for the AI
 SYSTEM_PROMPT = """You are an AI Terminal Assistant with Shell Execution capabilities in Termux.
@@ -121,15 +117,24 @@ def execute_shell(command, anim):
         anim.stop()
 
 def get_ai_response(messages):
-    # Prepare messages for OpenAI format
+    # Replit AI Integrations URL
+    url = "https://api.replit.com/ai/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer replit"
+    }
+    
     payload_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": payload_messages,
+    }
     
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=payload_messages,
-        )
-        return response.choices[0].message.content
+        import requests
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        return response.json()['choices'][0]['message']['content']
     except Exception as e:
         raise Exception(f"AI_ENGINE_ERR: {str(e)}")
 
