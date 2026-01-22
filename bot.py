@@ -130,13 +130,19 @@ def get_ai_response(messages):
         "messages": payload_messages,
     }
     
-    try:
-        import requests
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        response.raise_for_status()
-        return response.json()['choices'][0]['message']['content']
-    except Exception as e:
-        raise Exception(f"AI_ENGINE_ERR: {str(e)}")
+    max_api_retries = 3
+    for api_attempt in range(max_api_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=60)
+            response.raise_for_status()
+            return response.json()['choices'][0]['message']['content']
+        except requests.exceptions.ConnectionError:
+            if api_attempt < max_api_retries - 1:
+                time.sleep(2)
+                continue
+            raise Exception("Network unreachable or DNS failure. Please check your internet connection.")
+        except Exception as e:
+            raise Exception(f"AI_ENGINE_ERR: {str(e)}")
 
 def main():
     draw_banner()
