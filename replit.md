@@ -1,10 +1,10 @@
-# AI ChatBot Termux (Poe API)
+# AI ChatBot Termux (Poe API) - No OpenAI Library
 
-Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API.
+Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API tanpa perlu menginstall library `openai`.
 
 ## Persyaratan
 - Python 3.x
-- OpenAI Python Library (`pip install openai`)
+- Requests Library (`pip install requests`)
 - Poe API Key (dapatkan di [poe.com/api_key](https://poe.com/api_key))
 
 ## Cara Menjalankan di Termux
@@ -15,9 +15,9 @@ Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API.
    pkg install python
    ```
 
-2. Install library openai:
+2. Install library requests (lebih ringan daripada openai):
    ```bash
-   pip install openai
+   pip install requests
    ```
 
 3. Set API Key Poe:
@@ -31,4 +31,4 @@ Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API.
    ```
 
 ## Catatan
-Model yang digunakan adalah `Claude-3.5-Sonnet`. Anda bisa mengubah model di file `bot.py` sesuai kebutuhan.
+Script ini menggunakan HTTP requests langsung ke API Poe, sehingga sangat ringan dan tidak membutuhkan dependensi library `openai` yang besar.
