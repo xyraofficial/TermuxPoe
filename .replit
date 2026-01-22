@@ -29,8 +29,23 @@ author = "agent"
 task = "workflow.run"
 args = "AI ChatBot Termux"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AI ChatBot Termux (Reflect)"
+
 [[workflows.workflow]]
 name = "AI ChatBot Termux"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python bot.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "AI ChatBot Termux (Reflect)"
 author = "agent"
 
 [[workflows.workflow.tasks]]
