@@ -161,7 +161,7 @@ def main():
                 finally:
                     anim.stop()
 
-                title = f" AI CORE [Attempt {attempt+1}/{max_retries}] "
+                title = " AI CORE "
                 console.print(Panel(Markdown(ai_message), title=title, border_style="bright_green", box=ROUNDED, padding=(1, 2)))
                 messages.append({"role": "assistant", "content": ai_message})
 
