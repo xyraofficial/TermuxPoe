@@ -5,10 +5,11 @@ import json
 import requests
 import threading
 import itertools
+import subprocess
+import re
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
-from rich.live import Live
 from rich.text import Text
 
 # Initialize Rich Console
@@ -22,7 +23,22 @@ if not api_key:
     console.print("Please set it using: export POE_API_KEY='your_api_key'")
     sys.exit(1)
 
-# ANSI Color Codes for non-rich parts
+# System Prompt for the AI
+SYSTEM_PROMPT = """You are an AI Terminal Assistant with Shell Execution capabilities.
+Your workflow:
+1. Plan: Explain what you will do.
+2. Code: Provide the code or commands.
+3. Test: Run the code/commands to verify.
+4. Reflect: If error occurs, analyze logs and fix.
+
+When you want to execute a command, wrap it in:
+```bash
+command_here
+```
+Important: Always use -y for installs (e.g., pkg install -y git).
+"""
+
+# ANSI Color Codes
 CYAN = "\033[96m"
 WHITE = "\033[97m"
 GREEN = "\033[92m"
@@ -36,11 +52,11 @@ def clear_screen():
 
 def draw_banner():
     clear_screen()
-    console.print(f"{DIM}# Environment: AI-TERMINAL-X1\n# Protocol: POE-v1-SECURE{RESET}")
+    console.print(f"{DIM}# Environment: AI-TERMINAL-X1\n# Protocol: POE-v1-REFLECT{RESET}")
     banner_content = Text.assemble(
-        (f"~/firmware", "bold white"),
+        ("~/firmware", "bold white"),
         (" > ", "cyan"),
-        ("AI CHATBOT ENGINE", "bold green")
+        ("AI AUTO-EXEC ENGINE", "bold green")
     )
     console.print(Panel(banner_content, border_style="cyan", expand=False))
 
@@ -83,31 +99,44 @@ class FirmwareAnimation:
         if self.thread:
             self.thread.join()
 
+def execute_shell(command):
+    # Auto-add -y to common install commands if missing
+    # Supports pkg install, apt install, npm install, pip install
+    if re.search(r'\b(pkg|apt|npm|pip)\s+install\b', command) and '-y' not in command and '--yes' not in command:
+        command = re.sub(r'\b(pkg|apt|npm|pip)\s+install\b', r'\1 install -y', command)
+    
+    try:
+        console.print(f"[bold yellow]Executing:[/bold yellow] [white]{command}[/white]")
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=300)
+        return result.returncode, result.stdout, result.stderr
+    except Exception as e:
+        return 1, "", str(e)
+
 def get_ai_response(messages):
     url = "https://api.poe.com/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "X-Title": "Termux AI Bot"
+        "Content-Type": "application/json"
     }
     
+    # Ensure system prompt is present
+    payload_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+        
     payload = {
         "model": "Claude-3.5-Sonnet",
-        "messages": messages,
+        "messages": payload_messages,
         "stream": False
     }
     
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=30)
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
         response.raise_for_status()
-        data = response.json()
-        return data['choices'][0]['message']['content']
+        return response.json()['choices'][0]['message']['content']
     except Exception as e:
         raise Exception(f"FIRMWARE_ERR: {str(e)}")
 
 def main():
     draw_banner()
-    
     messages = []
     anim = FirmwareAnimation()
 
@@ -124,18 +153,45 @@ def main():
 
             messages.append({"role": "user", "content": user_input})
 
-            anim.start()
-            try:
-                ai_message = get_ai_response(messages)
-            finally:
-                anim.stop()
+            max_retries = 5
+            for attempt in range(max_retries):
+                anim.start()
+                try:
+                    ai_message = get_ai_response(messages)
+                finally:
+                    anim.stop()
 
-            # Display AI Response using Panel and Markdown
-            md = Markdown(ai_message)
-            console.print(Panel(md, title="[bold green][SYSTEM][/bold green]", border_style="green", expand=False))
-            console.print()
-            
-            messages.append({"role": "assistant", "content": ai_message})
+                # Show AI Response
+                console.print(Panel(Markdown(ai_message), title=f"[bold green]AI (Attempt {attempt+1})[/bold green]", border_style="green", expand=False))
+                messages.append({"role": "assistant", "content": ai_message})
+
+                # Check for bash blocks
+                commands = re.findall(r'```bash\s*\n(.*?)\n```', ai_message, re.DOTALL)
+                
+                if not commands:
+                    break # No commands to run, wait for next user input
+
+                all_success = True
+                for cmd in commands:
+                    cmd = cmd.strip()
+                    if not cmd: continue
+                    
+                    code, out, err = execute_shell(cmd)
+                    
+                    if out: console.print(Panel(Text(out.strip(), style="dim"), title="STDOUT", border_style="blue"))
+                    if err: console.print(Panel(Text(err.strip(), style="bold red"), title="STDERR", border_style="red"))
+
+                    if code != 0:
+                        all_success = False
+                        messages.append({"role": "user", "content": f"Command failed with exit code {code}.\nSTDOUT: {out}\nSTDERR: {err}\nPlease reflect and fix."})
+                        console.print("[bold red]Reflection triggered... repairing code.[/bold red]")
+                        break # Exit current command loop to let AI try again
+                
+                if all_success:
+                    console.print("[bold green]All commands executed successfully.[/bold green]")
+                    break
+            else:
+                console.print("[bold red]Reached maximum reflection attempts.[/bold red]")
 
         except KeyboardInterrupt:
             console.print(f"\n[bold yellow]SIGINT received. Exiting.[/bold yellow]")
