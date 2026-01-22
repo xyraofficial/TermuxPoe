@@ -100,8 +100,13 @@ def get_ai_response(messages, system_prompt=None):
         return f"ERROR: {str(e)}"
 
 def execute_command(command):
+    # Auto-prepend 'yes |' for installations to prevent hanging
+    if any(pkg_cmd in command for pkg_cmd in ["apt install", "pkg install", "pip install", "npm install"]):
+        if "yes |" not in command:
+            command = f"yes | {command}"
+            
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=120)
         return {
             "stdout": result.stdout,
             "stderr": result.stderr,
