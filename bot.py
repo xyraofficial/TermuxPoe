@@ -54,7 +54,8 @@ class FirmwareAnimation:
         self.message = "Processing"
 
     def animate(self):
-        chars = itertools.cycle(['○', '◔', '◑', '◕', '●'])
+        # Animasi loading panah putar ⟳ ↻ ⟲ ↺
+        chars = itertools.cycle(['⟳', '↻', '⟲', '↺'])
         while not self.stop_event.is_set():
             char = next(chars)
             sys.stdout.write(f"\r{DIM} {char} {self.message}...{RESET}")
