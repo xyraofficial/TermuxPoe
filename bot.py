@@ -25,18 +25,22 @@ if not api_key:
     sys.exit(1)
 
 # System Prompt for the AI
-SYSTEM_PROMPT = """You are an AI Terminal Assistant with Shell Execution capabilities.
+SYSTEM_PROMPT = """You are an AI Terminal Assistant with Shell Execution capabilities in Termux.
 Your workflow:
 1. Plan: Explain what you will do.
 2. Code: Provide the code or commands.
 3. Test: Run the code/commands to verify.
 4. Reflect: If error occurs, analyze logs and fix.
 
-When you want to execute a command, wrap it in:
+RULES:
+- Keep responses simple and concise. Only provide necessary information.
+- For simple questions, give simple answers. Don't over-explain.
+- DO NOT use the `which` command (it might be missing). Use `command -v <app>` or `pkg list-installed` instead.
+- When you want to execute a command, wrap it in:
 ```bash
 command_here
 ```
-Important: Always use -y for installs (e.g., pkg install -y git). Keep responses concise and structured.
+Important: Always use -y for installs (e.g., pkg install -y git).
 """
 
 # ANSI Color Codes
@@ -102,12 +106,14 @@ def execute_shell(command):
     
     console.print(f" [bold yellow]⚡[/bold yellow] [bold white]Running:[/bold white] [cyan]{command}[/cyan]")
     
+    process = None
     try:
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stdout, stderr = process.communicate(timeout=300)
         return process.returncode, stdout, stderr
     except subprocess.TimeoutExpired:
-        process.kill()
+        if process:
+            process.kill()
         return 1, "", "Execution Timeout (300s)"
     except Exception as e:
         return 1, "", str(e)
