@@ -21,48 +21,63 @@ YELLOW = "\033[93m"
 RED = "\033[91m"
 BLUE = "\033[94m"
 MAGENTA = "\033[95m"
+WHITE = "\033[97m"
 BOLD = "\033[1m"
+DIM = "\033[2m"
 RESET = "\033[0m"
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def draw_banner():
-    banner = f"""
+    # Estetika ~/firmware (Embedder style)
+    banner = f"""{DIM}# Loading firmware environment...
+# Target: AI-TERMINAL-X1
+# Protocol: POE-v1-SECURE{RESET}
 {CYAN}{BOLD}
-   █████╗ ██╗     ████████╗███████╗██████╗ ███╗   ███╗██╗   ██╗██╗  ██╗
-  ██╔══██╗██║     ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║   ██║╚██╗██╔╝
-  ███████║██║█████╗  ██║   █████╗  ██████╔╝██╔████╔██║██║   ██║ ╚███╔╝ 
-  ██╔══██║██║╚════╝  ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║   ██║ ██╔██╗ 
-  ██║  ██║██║        ██║   ███████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗
-  ╚═╝  ╚═╝╚═╝        ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝
-{RESET}{YELLOW}          Termux AI Chatbot (Poe API - Direct Access)
+   ┌──────────────────────────────────────────────────────────┐
+   │  {WHITE}~/firmware{CYAN} > {GREEN}AI CHATBOT ENGINE{CYAN}                          │
+   └──────────────────────────────────────────────────────────┘
 {RESET}"""
     print(banner)
 
-def typing_print(text, delay=0.01):
+def typing_print(text, delay=0.005):
+    # Efek typing ala firmware terminal yang cepat
     for char in text:
         sys.stdout.write(char)
         sys.stdout.flush()
         time.sleep(delay)
     print()
 
-class ThinkingAnimation:
+class FirmwareAnimation:
     def __init__(self):
         self.stop_event = threading.Event()
         self.thread = None
 
     def animate(self):
-        # Cool thinking animation
-        chars = itertools.cycle(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])
-        colors = itertools.cycle([CYAN, BLUE, MAGENTA])
+        # Animasi firmware loading/processing style
+        stages = [
+            "Initializing neural link...",
+            "Accessing memory blocks...",
+            "Decrypting response data...",
+            "Finalizing stream..."
+        ]
+        chars = itertools.cycle(['|', '/', '-', '\\'])
+        
+        start_time = time.time()
+        idx = 0
         while not self.stop_event.is_set():
             char = next(chars)
-            color = next(colors)
-            sys.stdout.write(f"\r{color}{BOLD} {char} AI sedang berpikir...{RESET}")
+            # Ganti teks setiap 1.5 detik
+            if time.time() - start_time > 1.5:
+                idx = (idx + 1) % len(stages)
+                start_time = time.time()
+                
+            sys.stdout.write(f"\r{DIM} {char} {stages[idx]}{RESET}")
             sys.stdout.flush()
             time.sleep(0.1)
-        sys.stdout.write("\r" + " " * 30 + "\r")
+        
+        sys.stdout.write("\r" + " " * 40 + "\r")
         sys.stdout.flush()
 
     def start(self):
@@ -95,22 +110,22 @@ def get_ai_response(messages):
         data = response.json()
         return data['choices'][0]['message']['content']
     except Exception as e:
-        raise Exception(f"API Error: {str(e)}")
+        raise Exception(f"FIRMWARE_ERR: {str(e)}")
 
 def main():
     clear_screen()
     draw_banner()
-    print(f"{YELLOW}Type 'exit' or 'quit' to leave.{RESET}\n")
-
+    
     messages = []
-    anim = ThinkingAnimation()
+    anim = FirmwareAnimation()
 
     while True:
         try:
-            user_input = input(f"{GREEN}{BOLD}❯❯ {RESET}")
+            # Menggunakan format ~/firmware >
+            user_input = input(f"{CYAN}{BOLD}~/firmware{RESET} {WHITE}>{RESET} ")
             
-            if user_input.lower() in ['exit', 'quit']:
-                print(f"\n{YELLOW}Terima kasih telah menggunakan AI Termux. Sampai jumpa!{RESET}")
+            if user_input.lower() in ['exit', 'quit', ':q']:
+                print(f"\n{DIM}Terminating session... Done.{RESET}")
                 break
                 
             if not user_input.strip():
@@ -118,26 +133,23 @@ def main():
 
             messages.append({"role": "user", "content": user_input})
 
-            # Start animation
             anim.start()
-            
             try:
                 ai_message = get_ai_response(messages)
             finally:
-                # Stop animation regardless of success/fail
                 anim.stop()
 
-            print(f"{CYAN}{BOLD}AI ❯ {RESET}", end="", flush=True)
+            print(f"{GREEN}{BOLD}[SYSTEM]{RESET} ", end="", flush=True)
             typing_print(ai_message)
             
             messages.append({"role": "assistant", "content": ai_message})
             print()
 
         except KeyboardInterrupt:
-            print(f"\n{YELLOW}Keluar...{RESET}")
+            print(f"\n{RED}SIGINT received. Exiting.{RESET}")
             break
         except Exception as e:
-            print(f"\n{RED}Terjadi kesalahan: {e}{RESET}")
+            print(f"\n{RED}[!] FATAL: {e}{RESET}")
 
 if __name__ == "__main__":
     main()
