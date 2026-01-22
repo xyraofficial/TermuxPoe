@@ -117,8 +117,12 @@ def execute_shell(command, anim):
         anim.stop()
 
 def get_ai_response(messages):
-    # Replit AI Integrations URL
-    url = "https://api.replit.com/ai/v1/chat/completions"
+    # Try multiple endpoints if one is unreachable
+    endpoints = [
+        "https://api.replit.com/ai/v1/chat/completions",
+        "https://ai-proxy.replit.com/ai/v1/chat/completions"
+    ]
+    
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer replit"
@@ -130,19 +134,19 @@ def get_ai_response(messages):
         "messages": payload_messages,
     }
     
-    max_api_retries = 3
-    for api_attempt in range(max_api_retries):
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=60)
-            response.raise_for_status()
-            return response.json()['choices'][0]['message']['content']
-        except requests.exceptions.ConnectionError:
-            if api_attempt < max_api_retries - 1:
-                time.sleep(2)
-                continue
-            raise Exception("Network unreachable or DNS failure. Please check your internet connection.")
-        except Exception as e:
-            raise Exception(f"AI_ENGINE_ERR: {str(e)}")
+    for url in endpoints:
+        for api_attempt in range(2):
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                response.raise_for_status()
+                return response.json()['choices'][0]['message']['content']
+            except requests.exceptions.RequestException:
+                if api_attempt == 0:
+                    time.sleep(1)
+                    continue
+                break # Try next endpoint
+                
+    raise Exception("Network Error: Could not reach AI service. Please check your Termux internet connection.")
 
 def main():
     draw_banner()
