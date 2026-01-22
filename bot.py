@@ -54,13 +54,15 @@ class FirmwareAnimation:
         self.message = "Processing"
 
     def animate(self):
-        # Animasi loading panah putar ⟳ ↻ ⟲ ↺
+        # Animasi loading panah putar BOLD dan lebih besar (simulasi dengan spasi/simbol)
+        # Karakter Unicode yang lebih tebal: ⟳ ↻
         chars = itertools.cycle(['⟳', '↻', '⟲', '↺'])
         while not self.stop_event.is_set():
             char = next(chars)
-            sys.stdout.write(f"\r{DIM} {char} {self.message}...{RESET}")
+            # Menggunakan BOLD ANSI dan spasi ekstra untuk kesan lebih besar
+            sys.stdout.write(f"\r{BOLD}{CYAN}  {char}  {RESET}{DIM}{self.message}...{RESET}")
             sys.stdout.flush()
-            time.sleep(0.15)
+            time.sleep(0.12)
         sys.stdout.write("\r" + " " * 60 + "\r")
         sys.stdout.flush()
 
