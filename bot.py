@@ -3,6 +3,8 @@ import sys
 import time
 import json
 import requests
+import threading
+import itertools
 
 # Poe API Configuration
 api_key = os.getenv("POE_API_KEY")
@@ -12,8 +14,31 @@ if not api_key:
     print("Please set it using: export POE_API_KEY='your_api_key'")
     sys.exit(1)
 
+# ANSI Color Codes
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+BLUE = "\033[94m"
+MAGENTA = "\033[95m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def draw_banner():
+    banner = f"""
+{CYAN}{BOLD}
+   █████╗ ██╗     ████████╗███████╗██████╗ ███╗   ███╗██╗   ██╗██╗  ██╗
+  ██╔══██╗██║     ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║   ██║╚██╗██╔╝
+  ███████║██║█████╗  ██║   █████╗  ██████╔╝██╔████╔██║██║   ██║ ╚███╔╝ 
+  ██╔══██║██║╚════╝  ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║   ██║ ██╔██╗ 
+  ██║  ██║██║        ██║   ███████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗
+  ╚═╝  ╚═╝╚═╝        ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝
+{RESET}{YELLOW}          Termux AI Chatbot (Poe API - Direct Access)
+{RESET}"""
+    print(banner)
 
 def typing_print(text, delay=0.01):
     for char in text:
@@ -21,6 +46,34 @@ def typing_print(text, delay=0.01):
         sys.stdout.flush()
         time.sleep(delay)
     print()
+
+class ThinkingAnimation:
+    def __init__(self):
+        self.stop_event = threading.Event()
+        self.thread = None
+
+    def animate(self):
+        # Cool thinking animation
+        chars = itertools.cycle(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])
+        colors = itertools.cycle([CYAN, BLUE, MAGENTA])
+        while not self.stop_event.is_set():
+            char = next(chars)
+            color = next(colors)
+            sys.stdout.write(f"\r{color}{BOLD} {char} AI sedang berpikir...{RESET}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write("\r" + " " * 30 + "\r")
+        sys.stdout.flush()
+
+    def start(self):
+        self.stop_event.clear()
+        self.thread = threading.Thread(target=self.animate)
+        self.thread.start()
+
+    def stop(self):
+        self.stop_event.set()
+        if self.thread:
+            self.thread.join()
 
 def get_ai_response(messages):
     url = "https://api.poe.com/v1/chat/completions"
@@ -46,21 +99,18 @@ def get_ai_response(messages):
 
 def main():
     clear_screen()
-    print("\033[94m" + "="*50)
-    print("       🚀 AI ChatBot Termux (Poe API) 🚀")
-    print("       (No Library OpenAI Required)    ")
-    print("="*50 + "\033[0m")
-    print("Model: Claude-3.5-Sonnet")
-    print("Ketik 'exit' atau 'quit' untuk keluar.\n")
+    draw_banner()
+    print(f"{YELLOW}Type 'exit' or 'quit' to leave.{RESET}\n")
 
     messages = []
+    anim = ThinkingAnimation()
 
     while True:
         try:
-            user_input = input("\033[92mAnda: \033[0m")
+            user_input = input(f"{GREEN}{BOLD}❯❯ {RESET}")
             
             if user_input.lower() in ['exit', 'quit']:
-                print("\033[93mSampai jumpa!\033[0m")
+                print(f"\n{YELLOW}Terima kasih telah menggunakan AI Termux. Sampai jumpa!{RESET}")
                 break
                 
             if not user_input.strip():
@@ -68,19 +118,26 @@ def main():
 
             messages.append({"role": "user", "content": user_input})
 
-            print("\033[94mAI: \033[0m", end="", flush=True)
+            # Start animation
+            anim.start()
             
-            ai_message = get_ai_response(messages)
+            try:
+                ai_message = get_ai_response(messages)
+            finally:
+                # Stop animation regardless of success/fail
+                anim.stop()
+
+            print(f"{CYAN}{BOLD}AI ❯ {RESET}", end="", flush=True)
             typing_print(ai_message)
             
             messages.append({"role": "assistant", "content": ai_message})
             print()
 
         except KeyboardInterrupt:
-            print("\n\033[93mKeluar...\033[0m")
+            print(f"\n{YELLOW}Keluar...{RESET}")
             break
         except Exception as e:
-            print(f"\n\033[91mTerjadi kesalahan: {e}\033[0m")
+            print(f"\n{RED}Terjadi kesalahan: {e}{RESET}")
 
 if __name__ == "__main__":
     main()
