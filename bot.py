@@ -2,11 +2,11 @@ import os
 import sys
 import time
 import json
-import requests
 import threading
 import itertools
 import subprocess
 import re
+from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -16,13 +16,12 @@ from rich.box import ROUNDED, DOUBLE_EDGE
 # Initialize Rich Console
 console = Console()
 
-# Poe API Configuration
-api_key = os.getenv("POE_API_KEY")
-
-if not api_key:
-    console.print("[bold red]Error: POE_API_KEY not found in environment variables.[/bold red]")
-    console.print("Please set it using: export POE_API_KEY='your_api_key'")
-    sys.exit(1)
+# Replit AI Integration Configuration
+# This uses Replit's internal OpenAI proxy, no API key needed.
+client = OpenAI(
+    base_url="https://api.replit.com/ai/v1",
+    api_key="replit", # This is a placeholder required by the client, the proxy handles auth
+)
 
 # System Prompt for the AI
 SYSTEM_PROMPT = """You are an AI Terminal Assistant with Shell Execution capabilities in Termux.
@@ -57,7 +56,7 @@ def clear_screen():
 
 def draw_banner():
     clear_screen()
-    console.print(f"{DIM}# Environment: AI-TERMINAL-X1 | Protocol: POE-v1-REFLECT{RESET}", justify="center")
+    console.print(f"{DIM}# Environment: AI-TERMINAL-X2 | Protocol: REPLIT-v1-REFLECT{RESET}", justify="center")
     banner_text = Text.assemble(
         (" ~/firmware ", "bold white on blue"),
         (" > ", "bold cyan"),
@@ -122,23 +121,17 @@ def execute_shell(command, anim):
         anim.stop()
 
 def get_ai_response(messages):
-    url = "https://api.poe.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # Prepare messages for OpenAI format
     payload_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
-    payload = {"model": "Claude-3.5-Sonnet", "messages": payload_messages, "stream": False}
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        
-        if response.status_code == 402:
-            raise Exception("Insufficient Poe points/credits. Please check your account.")
-            
-        response.raise_for_status()
-        return response.json()['choices'][0]['message']['content']
-    except requests.exceptions.ConnectionError:
-        raise Exception("Network unreachable. Please check your internet connection.")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=payload_messages,
+        )
+        return response.choices[0].message.content
     except Exception as e:
-        raise Exception(f"FIRMWARE_ERR: {str(e)}")
+        raise Exception(f"AI_ENGINE_ERR: {str(e)}")
 
 def main():
     draw_banner()
@@ -169,12 +162,9 @@ def main():
                     ai_message = get_ai_response(messages)
                 except Exception as e:
                     anim.stop()
-                    # Check if it's a critical API error that shouldn't be retried
                     err_str = str(e)
-                    if "Insufficient" in err_str or "Network" in err_str:
-                        console.print(Panel(err_str, title="[bold red]CRITICAL ERROR[/bold red]", border_style="bright_red", box=DOUBLE_EDGE))
-                        return # Exit the main loop/bot
-                    raise e
+                    console.print(Panel(err_str, title="[bold red]CRITICAL ERROR[/bold red]", border_style="bright_red", box=DOUBLE_EDGE))
+                    return
                 finally:
                     anim.stop()
 
@@ -193,7 +183,6 @@ def main():
                     code, out, err = execute_shell(cmd, anim)
                     
                     if out.strip():
-                        # Filter out noisy progress lines like "Reading database ... 5%"
                         filtered_out = "\n".join([line for line in out.strip().split("\n") if not re.search(r"Reading database \.\.\. \d+%", line)])
                         if filtered_out.strip():
                             console.print(Panel(filtered_out.strip(), title="[bold blue]STDOUT[/bold blue]", border_style="blue", box=ROUNDED, subtitle=f"Code: {code}"))
