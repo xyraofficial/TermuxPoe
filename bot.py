@@ -5,23 +5,28 @@ import json
 import requests
 import threading
 import itertools
+from rich.console import Console
+from rich.panel import Panel
+from rich.markdown import Markdown
+from rich.live import Live
+from rich.text import Text
+
+# Initialize Rich Console
+console = Console()
 
 # Poe API Configuration
 api_key = os.getenv("POE_API_KEY")
 
 if not api_key:
-    print("\033[91mError: POE_API_KEY not found in environment variables.\033[0m")
-    print("Please set it using: export POE_API_KEY='your_api_key'")
+    console.print("[bold red]Error: POE_API_KEY not found in environment variables.[/bold red]")
+    console.print("Please set it using: export POE_API_KEY='your_api_key'")
     sys.exit(1)
 
-# ANSI Color Codes
+# ANSI Color Codes for non-rich parts
 CYAN = "\033[96m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BLUE = "\033[94m"
-MAGENTA = "\033[95m"
 WHITE = "\033[97m"
+GREEN = "\033[92m"
+RED = "\033[91m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
@@ -30,20 +35,14 @@ def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def draw_banner():
-    # Banner lebih ramping agar tidak terpotong di layar HP/Termux
-    banner = f"""{DIM}# Environment: AI-TERMINAL-X1
-# Protocol: POE-v1-SECURE{RESET}
-{CYAN}{BOLD}┌───────────────────────────────────┐
-│ {WHITE}~/firmware{CYAN} > {GREEN}AI CHATBOT ENGINE{CYAN}    │
-└───────────────────────────────────┘{RESET}"""
-    print(banner)
-
-def typing_print(text, delay=0.005):
-    for char in text:
-        sys.stdout.write(char)
-        sys.stdout.flush()
-        time.sleep(delay)
-    print()
+    clear_screen()
+    console.print(f"{DIM}# Environment: AI-TERMINAL-X1\n# Protocol: POE-v1-SECURE{RESET}")
+    banner_content = Text.assemble(
+        (f"~/firmware", "bold white"),
+        (" > ", "cyan"),
+        ("AI CHATBOT ENGINE", "bold green")
+    )
+    console.print(Panel(banner_content, border_style="cyan", expand=False))
 
 class FirmwareAnimation:
     def __init__(self):
@@ -51,14 +50,12 @@ class FirmwareAnimation:
         self.thread = None
 
     def animate(self):
-        # Animasi loading bulat (dots/circles)
         stages = [
             "Initializing neural link",
             "Accessing memory blocks",
             "Decrypting response data",
             "Finalizing stream"
         ]
-        # Karakter bulat/dots: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ atau yang lebih simpel seperti 🌑🌒🌓🌔🌕
         chars = itertools.cycle(['○', '◔', '◑', '◕', '●'])
         
         start_time = time.time()
@@ -109,7 +106,6 @@ def get_ai_response(messages):
         raise Exception(f"FIRMWARE_ERR: {str(e)}")
 
 def main():
-    clear_screen()
     draw_banner()
     
     messages = []
@@ -117,10 +113,10 @@ def main():
 
     while True:
         try:
-            user_input = input(f"{CYAN}{BOLD}~/firmware{RESET} {WHITE}>{RESET} ")
+            user_input = console.input(f"[bold cyan]~/firmware[/bold cyan] [white]>[/white] ")
             
             if user_input.lower() in ['exit', 'quit', ':q']:
-                print(f"\n{DIM}Terminating session... Done.{RESET}")
+                console.print(f"\n[dim]Terminating session... Done.[/dim]")
                 break
                 
             if not user_input.strip():
@@ -134,17 +130,18 @@ def main():
             finally:
                 anim.stop()
 
-            print(f"{GREEN}{BOLD}[SYSTEM]{RESET} ", end="", flush=True)
-            typing_print(ai_message)
+            # Display AI Response using Panel and Markdown
+            md = Markdown(ai_message)
+            console.print(Panel(md, title="[bold green][SYSTEM][/bold green]", border_style="green", expand=False))
+            console.print()
             
             messages.append({"role": "assistant", "content": ai_message})
-            print()
 
         except KeyboardInterrupt:
-            print(f"\n{RED}SIGINT received. Exiting.{RESET}")
+            console.print(f"\n[bold yellow]SIGINT received. Exiting.[/bold yellow]")
             break
         except Exception as e:
-            print(f"\n{RED}[!] FATAL: {e}{RESET}")
+            console.print(f"\n[bold red][!] FATAL: {e}[/bold red]")
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API tanpa p
 
 ## Persyaratan
 - Python 3.x
-- Requests Library (`pip install requests`)
+- Requests & Rich Library (`pip install requests rich`)
 - Poe API Key (dapatkan di [poe.com/api_key](https://poe.com/api_key))
 
 ## Cara Menjalankan di Termux
@@ -15,9 +15,9 @@ Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API tanpa p
    pkg install python
    ```
 
-2. Install library requests (lebih ringan daripada openai):
+2. Install library:
    ```bash
-   pip install requests
+   pip install requests rich
    ```
 
 3. Set API Key Poe:
@@ -30,5 +30,8 @@ Script Python untuk menjalankan AI ChatBot di Termux menggunakan Poe API tanpa p
    python bot.py
    ```
 
-## Catatan
-Script ini menggunakan HTTP requests langsung ke API Poe, sehingga sangat ringan dan tidak membutuhkan dependensi library `openai` yang besar.
+## Fitur
+- **Rich Panel**: Tampilan respons AI dalam panel yang rapi.
+- **Markdown Support**: Mendukung rendering Markdown (bold, list, code blocks, dll).
+- **Firmware UI**: Estetika terminal ala `~/firmware`.
+- **Lightweight**: Tidak butuh library `openai`.
