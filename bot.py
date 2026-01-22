@@ -129,8 +129,14 @@ def get_ai_response(messages):
     
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=60)
+        
+        if response.status_code == 402:
+            raise Exception("Insufficient Poe points/credits. Please check your account.")
+            
         response.raise_for_status()
         return response.json()['choices'][0]['message']['content']
+    except requests.exceptions.ConnectionError:
+        raise Exception("Network unreachable. Please check your internet connection.")
     except Exception as e:
         raise Exception(f"FIRMWARE_ERR: {str(e)}")
 
@@ -161,6 +167,14 @@ def main():
                 anim.start()
                 try:
                     ai_message = get_ai_response(messages)
+                except Exception as e:
+                    anim.stop()
+                    # Check if it's a critical API error that shouldn't be retried
+                    err_str = str(e)
+                    if "Insufficient" in err_str or "Network" in err_str:
+                        console.print(Panel(err_str, title="[bold red]CRITICAL ERROR[/bold red]", border_style="bright_red", box=DOUBLE_EDGE))
+                        return # Exit the main loop/bot
+                    raise e
                 finally:
                     anim.stop()
 
