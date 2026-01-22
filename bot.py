@@ -179,7 +179,10 @@ def main():
                     code, out, err = execute_shell(cmd, anim)
                     
                     if out.strip():
-                        console.print(Panel(out.strip(), title="[bold blue]STDOUT[/bold blue]", border_style="blue", box=ROUNDED, subtitle=f"Code: {code}"))
+                        # Filter out noisy progress lines like "Reading database ... 5%"
+                        filtered_out = "\n".join([line for line in out.strip().split("\n") if not re.search(r"Reading database \.\.\. \d+%", line)])
+                        if filtered_out.strip():
+                            console.print(Panel(filtered_out.strip(), title="[bold blue]STDOUT[/bold blue]", border_style="blue", box=ROUNDED, subtitle=f"Code: {code}"))
                     
                     if code != 0:
                         all_success = False
