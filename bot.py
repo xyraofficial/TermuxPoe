@@ -72,7 +72,7 @@ class FirmwareAnimation:
         self.thread = None
 
     def animate(self):
-        stages = ["Neural Link", "Memory Block", "Decrypting", "Finalizing"]
+        stages = ["Neural Link", "Memory Block", "Decrypting", "Finalizing", "Executing"]
         chars = itertools.cycle(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])
         
         start_time = time.time()
@@ -100,12 +100,13 @@ class FirmwareAnimation:
         if self.thread:
             self.thread.join()
 
-def execute_shell(command):
+def execute_shell(command, anim):
     if re.search(r'\b(pkg|apt|npm|pip)\s+install\b', command) and '-y' not in command and '--yes' not in command:
         command = re.sub(r'\b(pkg|apt|npm|pip)\s+install\b', r'\1 install -y', command)
     
     console.print(f" [bold yellow]⚡[/bold yellow] [bold white]Running:[/bold white] [cyan]{command}[/cyan]")
     
+    anim.start()
     process = None
     try:
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -117,6 +118,8 @@ def execute_shell(command):
         return 1, "", "Execution Timeout (300s)"
     except Exception as e:
         return 1, "", str(e)
+    finally:
+        anim.stop()
 
 def get_ai_response(messages):
     url = "https://api.poe.com/v1/chat/completions"
@@ -173,7 +176,7 @@ def main():
                     cmd = cmd.strip()
                     if not cmd: continue
                     
-                    code, out, err = execute_shell(cmd)
+                    code, out, err = execute_shell(cmd, anim)
                     
                     if out.strip():
                         console.print(Panel(out.strip(), title="[bold blue]STDOUT[/bold blue]", border_style="blue", box=ROUNDED, subtitle=f"Code: {code}"))
