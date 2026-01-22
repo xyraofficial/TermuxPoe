@@ -30,19 +30,15 @@ def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def draw_banner():
-    # Estetika ~/firmware (Embedder style)
-    banner = f"""{DIM}# Loading firmware environment...
-# Target: AI-TERMINAL-X1
+    # Banner lebih ramping agar tidak terpotong di layar HP/Termux
+    banner = f"""{DIM}# Environment: AI-TERMINAL-X1
 # Protocol: POE-v1-SECURE{RESET}
-{CYAN}{BOLD}
-   ┌──────────────────────────────────────────────────────────┐
-   │  {WHITE}~/firmware{CYAN} > {GREEN}AI CHATBOT ENGINE{CYAN}                          │
-   └──────────────────────────────────────────────────────────┘
-{RESET}"""
+{CYAN}{BOLD}┌───────────────────────────────────┐
+│ {WHITE}~/firmware{CYAN} > {GREEN}AI CHATBOT ENGINE{CYAN}    │
+└───────────────────────────────────┘{RESET}"""
     print(banner)
 
 def typing_print(text, delay=0.005):
-    # Efek typing ala firmware terminal yang cepat
     for char in text:
         sys.stdout.write(char)
         sys.stdout.flush()
@@ -55,29 +51,29 @@ class FirmwareAnimation:
         self.thread = None
 
     def animate(self):
-        # Animasi firmware loading/processing style
+        # Animasi loading bulat (dots/circles)
         stages = [
-            "Initializing neural link...",
-            "Accessing memory blocks...",
-            "Decrypting response data...",
-            "Finalizing stream..."
+            "Initializing neural link",
+            "Accessing memory blocks",
+            "Decrypting response data",
+            "Finalizing stream"
         ]
-        chars = itertools.cycle(['|', '/', '-', '\\'])
+        # Karakter bulat/dots: ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ atau yang lebih simpel seperti 🌑🌒🌓🌔🌕
+        chars = itertools.cycle(['○', '◔', '◑', '◕', '●'])
         
         start_time = time.time()
         idx = 0
         while not self.stop_event.is_set():
             char = next(chars)
-            # Ganti teks setiap 1.5 detik
-            if time.time() - start_time > 1.5:
+            if time.time() - start_time > 1.2:
                 idx = (idx + 1) % len(stages)
                 start_time = time.time()
                 
-            sys.stdout.write(f"\r{DIM} {char} {stages[idx]}{RESET}")
+            sys.stdout.write(f"\r{DIM} {char} {stages[idx]}...{RESET}")
             sys.stdout.flush()
-            time.sleep(0.1)
+            time.sleep(0.15)
         
-        sys.stdout.write("\r" + " " * 40 + "\r")
+        sys.stdout.write("\r" + " " * 45 + "\r")
         sys.stdout.flush()
 
     def start(self):
@@ -121,7 +117,6 @@ def main():
 
     while True:
         try:
-            # Menggunakan format ~/firmware >
             user_input = input(f"{CYAN}{BOLD}~/firmware{RESET} {WHITE}>{RESET} ")
             
             if user_input.lower() in ['exit', 'quit', ':q']:
